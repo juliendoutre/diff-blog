@@ -55,29 +55,32 @@ The web app in `public/` is generic — it loads whatever content is in `demo/`.
 
 ## Local development
 
-Serve from the project root (so the app in `public/` can reach the data in `demo/`):
+Stage the same layout as GitHub Pages (`public/` at `/`, `demo/` at `/demo/`), then serve it:
 
 ```bash
 cd /path/to/diff-blog
-python3 -m http.server 8000
+mkdir -p staging
+cp -r public/* staging/
+cp -r demo staging/demo
+python3 -m http.server 8000 --directory staging
 ```
 
-Then open <http://localhost:8000/public/> in your browser.
+Then open <http://localhost:8000/> in your browser.
 
 Press `Ctrl+C` in the terminal to stop the server.
 
-## URL routing
+## URL deep links
 
-The app supports deep-linking via the URL path:
+Progress is tracked with query parameters so the page path stays stable (important for GitHub Pages base paths):
 
 ```
-/<COMMIT_SHA>/<SECTION_INDEX>
+?commit=<COMMIT_SHA>&section=<SECTION_INDEX>
 ```
 
-- `/<COMMIT_SHA>` — opens the chapter for that commit, at the first section (or the last read position if you've visited before).
-- `/<COMMIT_SHA>/<SECTION_INDEX>` — opens the chapter at the specified section (0-based).
+- `?commit=<COMMIT_SHA>` — opens the chapter for that commit, resuming the last read section for that chapter if known.
+- `?commit=<COMMIT_SHA>&section=<SECTION_INDEX>` — opens the chapter at the specified section (0-based).
 
-Navigating within the app updates the URL via `pushState`, so the browser back/forward buttons work as expected.
+Navigating within the app updates the query string via `pushState`, so the browser back/forward buttons work as expected.
 
 ## Pre-resolving diffs
 

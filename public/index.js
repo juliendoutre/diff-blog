@@ -1,23 +1,8 @@
 (function () {
   'use strict';
 
-  // App base path: /diff-blog on GitHub Pages, /public for local dev, '' at site root.
-  function getBasePath() {
-    var scripts = document.getElementsByTagName('script');
-    for (var i = 0; i < scripts.length; i++) {
-      var src = scripts[i].getAttribute('src');
-      if (src && /index\.js(\?|$)/.test(src)) {
-        return new URL(src, location.href).pathname.replace(/\/index\.js$/, '') || '';
-      }
-    }
-    return '';
-  }
-
-  var BASE_PATH = getBasePath();
-
-  // Data directory: ../demo/ when served from project root (local dev),
-  // demo/ when deployed (staged at site root).
-  var DATA_BASE = BASE_PATH.indexOf('/public') !== -1 ? '../demo/' : 'demo/';
+  // Data lives next to the app at demo/ (local staging and GitHub Pages deploy).
+  var DATA_BASE = 'demo/';
 
   // ============================================================
   // State
@@ -26,6 +11,7 @@
     data: null,
     currentChapter: 0,
     currentSection: 0,
+    pendingSection: null, // when set, renderCurrent uses this instead of resuming from storage
     progress: {},       // chapterIndex -> maxSectionReached (high-water mark for progress bar)
     position: {},       // chapterIndex -> actual current section (where the user left off)
     diffCache: {},      // commit SHA -> array of file objects
@@ -152,12 +138,13 @@
     state.currentChapter = chapterIndex;
     const chapter = state.data.chapters[chapterIndex];
     if (chapter.sections.length === 0) {
+      state.pendingSection = null;
       renderCurrent();
       closeToc();
       showNavIndicator();
       return;
     }
-    state.currentSection = Math.min(sectionIndex, chapter.sections.length - 1);
+    state.pendingSection = Math.min(sectionIndex, chapter.sections.length - 1);
     savePosition();
     renderCurrent();
     closeToc();
@@ -166,7 +153,7 @@
   }
 
   // ============================================================
-  // URL routing
+  // URL query params (?commit=&section=)
   // ============================================================
   function setupRouting() {
     window.addEventListener('popstate', function () {
@@ -178,28 +165,11 @@
     handleRoute();
   }
 
-  function stripBasePath(pathname) {
-    if (BASE_PATH && pathname.indexOf(BASE_PATH) === 0) {
-      var rest = pathname.slice(BASE_PATH.length);
-      return rest.charAt(0) === '/' ? rest : '/' + rest;
-    }
-    return pathname;
-  }
-
-  function buildRoutePath(commit, sectionIdx) {
-    return BASE_PATH + '/' + encodeURIComponent(commit) + '/' + sectionIdx;
-  }
-
   function handleRoute() {
     if (!state.data) return;
-    const path = stripBasePath(window.location.pathname);
-    // Support /<commit>/<section> or /<commit> format
-    const parts = path.split('/').filter(Boolean);
-    if (parts.length === 0) return;
-    if (parts[0] === 'index.html') return;
-
-    const commit = decodeURIComponent(parts[0]);
-    const sectionIdx = parts.length >= 2 ? parseInt(parts[1], 10) : 0;
+    const params = new URLSearchParams(window.location.search);
+    const commit = params.get('commit');
+    if (!commit) return;
 
     const chapterIndex = state.data.chapters.findIndex(function (c) {
       return c.commit === commit;
@@ -207,8 +177,17 @@
     if (chapterIndex === -1) return;
 
     state.currentChapter = chapterIndex;
-    if (state.data.chapters[chapterIndex].sections.length > 0) {
-      state.currentSection = Math.min(sectionIdx, state.data.chapters[chapterIndex].sections.length - 1);
+    const chapter = state.data.chapters[chapterIndex];
+    if (chapter.sections.length === 0) {
+      state.pendingSection = null;
+      return;
+    }
+
+    if (params.has('section')) {
+      const sectionIdx = parseInt(params.get('section'), 10);
+      if (!isNaN(sectionIdx)) {
+        state.pendingSection = Math.min(Math.max(0, sectionIdx), chapter.sections.length - 1);
+      }
     }
   }
 
@@ -216,10 +195,18 @@
     if (!state.data) return;
     const chapter = getCurrentChapter();
     if (!chapter) return;
-    const path = buildRoutePath(chapter.commit, state.currentSection);
-    if (window.location.pathname !== path) {
-      window.history.pushState(null, '', path);
+
+    const params = new URLSearchParams(window.location.search);
+    const section = String(state.currentSection);
+    if (params.get('commit') === chapter.commit && params.get('section') === section) {
+      return;
     }
+
+    params.set('commit', chapter.commit);
+    params.set('section', section);
+    const qs = params.toString();
+    const url = window.location.pathname + (qs ? '?' + qs : '') + window.location.hash;
+    window.history.pushState(null, '', url);
   }
 
   // ============================================================
@@ -329,10 +316,17 @@
       return;
     }
 
-    // Resume from saved position (not high-water mark)
-    const savedPos = state.position[state.currentChapter];
-    const maxReached = state.progress[state.currentChapter] ?? 0;
-    state.currentSection = savedPos != null ? Math.min(savedPos, chapter.sections.length - 1) : Math.min(maxReached, chapter.sections.length - 1);
+    if (typeof state.pendingSection === 'number') {
+      state.currentSection = Math.min(state.pendingSection, chapter.sections.length - 1);
+      state.pendingSection = null;
+    } else {
+      // Resume from saved position (not high-water mark)
+      const savedPos = state.position[state.currentChapter];
+      const maxReached = state.progress[state.currentChapter] ?? 0;
+      state.currentSection = savedPos != null
+        ? Math.min(savedPos, chapter.sections.length - 1)
+        : Math.min(maxReached, chapter.sections.length - 1);
+    }
 
     state.isTransitioning = true;
     el.sectionContent.classList.add('fading');
