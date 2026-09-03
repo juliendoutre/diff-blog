@@ -1,0 +1,35 @@
+{
+    "title": "Test",
+    "repo": "https://github.com/juliendoutre/proxaudit",
+    "chapters": [
+        {
+            "title": "Chapter 1",
+            "commit": "969be3daac2d8ec5c1a08549ec4133b456885869",
+            "sections": [
+                {
+                    "path": "README.md",
+                    "content": "Starting by writing a readme"
+                },
+                {
+                    "path": "go.mod",
+                    "from": 6,
+                    "to": 6,
+                    "content": "And some dependencies that I found **perfect** for the job"
+                },
+                {
+                    "path": "main.go",
+                    "content": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vivamus nec diam at orci feugiat semper. Nulla facilisi. Nullam tempor nisl mi, nec posuere lorem dapibus non. Vestibulum accumsan dictum mattis. Aliquam rutrum ligula a nulla tempus lacinia. Integer in mi non elit vehicula mollis. Sed eleifend tempor massa, eu auctor eros. Duis aliquet neque eget mi sollicitudin tempus. Phasellus massa libero, bibendum eget viverra nec, vehicula ut erat."
+                }
+            ]
+        },
+        {
+            "title": "Chapter 2",
+            "commit": "447723bc91587a1ac6860f15fd79c5e08d9cf6f5",
+            "sections": [
+                {
+                    "content": "Just some regular content"
+                }
+            ]
+        }
+    ]
+}

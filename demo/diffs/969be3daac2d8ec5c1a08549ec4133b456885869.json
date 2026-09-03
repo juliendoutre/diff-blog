@@ -1,0 +1,33 @@
+{
+  "sha": "969be3daac2d8ec5c1a08549ec4133b456885869",
+  "files": [
+    {
+      "filename": "README.md",
+      "status": "modified",
+      "additions": 3,
+      "deletions": 0,
+      "patch": "@@ -3,6 +3,9 @@\n ## Usage\n \n ```shell\n+brew install mkcert\n+mkcert -install\n go run ./main.go\n http_proxy=http://localhost:8000 curl http://google.com\n+https_proxy=http://localhost:8000 curl https://google.com\n ```"
+    },
+    {
+      "filename": "go.mod",
+      "status": "modified",
+      "additions": 9,
+      "deletions": 2,
+      "patch": "@@ -2,6 +2,13 @@ module github.com/juliendoutre/proxaudit\n \n go 1.23.3\n \n-require go.uber.org/zap v1.27.0\n+require (\n+\tgithub.com/elazarl/goproxy v0.0.0-20241209145312-60626aee8fb5\n+\tgo.uber.org/zap v1.27.0\n+)\n \n-require go.uber.org/multierr v1.11.0 // indirect\n+require (\n+\tgo.uber.org/multierr v1.11.0 // indirect\n+\tgolang.org/x/net v0.32.0 // indirect\n+\tgolang.org/x/text v0.21.0 // indirect\n+)"
+    },
+    {
+      "filename": "go.sum",
+      "status": "modified",
+      "additions": 8,
+      "deletions": 0,
+      "patch": "@@ -1,5 +1,9 @@\n github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=\n github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=\n+github.com/elazarl/goproxy v0.0.0-20241209145312-60626aee8fb5 h1:8uwZ3G6BWD7I0lMflO1m/fUztvFbPKAaY+xZlqQpfVU=\n+github.com/elazarl/goproxy v0.0.0-20241209145312-60626aee8fb5/go.mod h1:thX175TtLTzLj3p7N/Q9IiKZ7NF+p72cvL91emV0hzo=\n+github.com/elazarl/goproxy/ext v0.0.0-20190711103511-473e67f1d7d2 h1:dWB6v3RcOy03t/bUadywsbyrQwCqZeNIEX6M1OtSZOM=\n+github.com/elazarl/goproxy/ext v0.0.0-20190711103511-473e67f1d7d2/go.mod h1:gNh8nYJoAm43RfaxurUnxr+N1PwuFV3ZMl/efxlIlY8=\n github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=\n github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=\n github.com/stretchr/testify v1.8.1 h1:w7B6lhMri9wdJUVmEZPGGhZzrYTPvgJArz7wNPgYKsk=\n@@ -10,5 +14,9 @@ go.uber.org/multierr v1.11.0 h1:blXXJkSxSSfBVBlC76pxqeO+LN3aDfLQo+309xJstO0=\n go.uber.org/multierr v1.11.0/go.mod h1:20+QtiLqy0Nd6FdQB9TLXag12DsQkrbs3htMFfDN80Y=\n go.uber.org/zap v1.27.0 h1:aJMhYGrd5QSmlpLMr2MftRKl7t8J8PTZPA732ud/XR8=\n go.uber.org/zap v1.27.0/go.mod h1:GB2qFLM7cTU87MWRP2mPIjqfIDnGu+VIO4V/SdhGo2E=\n+golang.org/x/net v0.32.0 h1:ZqPmj8Kzc+Y6e0+skZsuACbx+wzMgo5MQsJh9Qd6aYI=\n+golang.org/x/net v0.32.0/go.mod h1:CwU0IoeOlnQQWJ6ioyFrfRuomB8GKF6KbYXZVyeXNfs=\n+golang.org/x/text v0.21.0 h1:zyQAAkrwaneQ066sspRyJaG9VNi/YJ1NfzcGB3hZ/qo=\n+golang.org/x/text v0.21.0/go.mod h1:4IBbMaMmOPCJ8SecivzSH54+73PCFmPWxNTLm+vZkEQ=\n gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=\n gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM="
+    },
+    {
+      "filename": "main.go",
+      "status": "modified",
+      "additions": 30,
+      "deletions": 48,
+      "patch": "@@ -2,34 +2,60 @@ package main\n \n import (\n \t\"context\"\n+\t\"crypto/tls\"\n \t\"errors\"\n \t\"flag\"\n-\t\"io\"\n \t\"log\"\n-\t\"net\"\n \t\"net/http\"\n-\t\"net/http/httputil\"\n \t\"os\"\n \t\"os/signal\"\n+\t\"path\"\n \t\"strconv\"\n \t\"syscall\"\n \t\"time\"\n \n+\t\"github.com/elazarl/goproxy\"\n \t\"go.uber.org/zap\"\n )\n \n func main() {\n+\tmkcertDir := path.Join(os.Getenv(\"HOME\"), \"Library\", \"Application Support\", \"mkcert\")\n+\n \tport := flag.Uint64(\"port\", 8000, \"port to listen on\")\n+\tcaCertPath := flag.String(\"ca-cert\", path.Join(mkcertDir, \"rootCA.pem\"), \"path to a CA certificate\")\n+\tcaKeyPath := flag.String(\"ca-key\", path.Join(mkcertDir, \"rootCA-key.pem\"), \"path to a CA private key\")\n \tflag.Parse()\n \n \tlogger, err := zap.NewProductionConfig().Build()\n \tif err != nil {\n \t\tlog.Panic(err)\n \t}\n \n+\tcert, err := tls.LoadX509KeyPair(*caCertPath, *caKeyPath)\n+\tif err != nil {\n+\t\tlogger.Panic(\"Failed loading CA certificate\", zap.Error(err))\n+\t}\n+\n+\tgoproxy.GoproxyCa = cert\n+\n+\tproxy := goproxy.NewProxyHttpServer()\n+\tproxy.Verbose = false\n+\tproxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)\n+\tproxy.OnRequest(goproxy.ReqConditionFunc(\n+\t\tfunc(req *http.Request, _ *goproxy.ProxyCtx) bool {\n+\t\t\treturn req.Method != http.MethodConnect\n+\t\t},\n+\t)).DoFunc(\n+\t\tfunc(req *http.Request, _ *goproxy.ProxyCtx) (*http.Request, *http.Response) {\n+\t\t\tlogger.Info(\"received a request\", zap.String(\"method\", req.Method), zap.String(\"url\", req.URL.String()))\n+\n+\t\t\treturn req, nil\n+\t\t},\n+\t)\n+\n \tserver := &http.Server{\n \t\tAddr:              \":\" + strconv.FormatUint(*port, 10),\n-\t\tHandler:           &handler{logger},\n+\t\tHandler:           proxy,\n \t\tReadTimeout:       10 * time.Second,\n \t\tReadHeaderTimeout: 5 * time.Second,\n \t\tIdleTimeout:       120 * time.Second,\n@@ -57,47 +83,3 @@ func waitForSignal(server *http.Server, logger *zap.Logger) {\n \t\tlogger.Error(\"Failed shutting down HTTPS proxy server\", zap.Error(err))\n \t}\n }\n-\n-type handler struct {\n-\tlogger *zap.Logger\n-}\n-\n-func (h *handler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {\n-\th.logger.Info(\"received request\", zap.String(\"method\", req.Method), zap.String(\"url\", req.URL.String()))\n-\n-\tif req.Method == http.MethodConnect {\n-\t\th.handleConnect(rw, req)\n-\t} else {\n-\t\thttputil.NewSingleHostReverseProxy(req.URL).ServeHTTP(rw, req)\n-\t}\n-}\n-\n-func (h *handler) handleConnect(rw http.ResponseWriter, req *http.Request) {\n-\thijacker, ok := rw.(http.Hijacker)\n-\tif !ok {\n-\t\thttp.Error(rw, \"Hijacking not supported\", http.StatusInternalServerError)\n-\n-\t\treturn\n-\t}\n-\n-\tclientConn, _, err := hijacker.Hijack()\n-\tif err != nil {\n-\t\thttp.Error(rw, err.Error(), http.StatusServiceUnavailable)\n-\n-\t\treturn\n-\t}\n-\tdefer clientConn.Close()\n-\n-\tserverConn, err := net.Dial(\"tcp\", req.Host)\n-\tif err != nil {\n-\t\thttp.Error(rw, err.Error(), http.StatusServiceUnavailable)\n-\n-\t\treturn\n-\t}\n-\tdefer serverConn.Close()\n-\n-\tclientConn.Write([]byte(\"HTTP/1.1 200 Connection Established\\r\\n\\r\\n\"))\n-\n-\tgo io.Copy(serverConn, clientConn)\n-\tio.Copy(clientConn, serverConn)\n-}"
+    }
+  ]
+}
