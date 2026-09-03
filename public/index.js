@@ -1,9 +1,23 @@
 (function () {
   'use strict';
 
+  // App base path: /diff-blog on GitHub Pages, /public for local dev, '' at site root.
+  function getBasePath() {
+    var scripts = document.getElementsByTagName('script');
+    for (var i = 0; i < scripts.length; i++) {
+      var src = scripts[i].getAttribute('src');
+      if (src && /index\.js(\?|$)/.test(src)) {
+        return new URL(src, location.href).pathname.replace(/\/index\.js$/, '') || '';
+      }
+    }
+    return '';
+  }
+
+  var BASE_PATH = getBasePath();
+
   // Data directory: ../demo/ when served from project root (local dev),
   // demo/ when deployed (staged at site root).
-  var DATA_BASE = location.pathname.indexOf('/public') !== -1 ? '../demo/' : 'demo/';
+  var DATA_BASE = BASE_PATH.indexOf('/public') !== -1 ? '../demo/' : 'demo/';
 
   // ============================================================
   // State
@@ -164,12 +178,25 @@
     handleRoute();
   }
 
+  function stripBasePath(pathname) {
+    if (BASE_PATH && pathname.indexOf(BASE_PATH) === 0) {
+      var rest = pathname.slice(BASE_PATH.length);
+      return rest.charAt(0) === '/' ? rest : '/' + rest;
+    }
+    return pathname;
+  }
+
+  function buildRoutePath(commit, sectionIdx) {
+    return BASE_PATH + '/' + encodeURIComponent(commit) + '/' + sectionIdx;
+  }
+
   function handleRoute() {
     if (!state.data) return;
-    const path = window.location.pathname;
+    const path = stripBasePath(window.location.pathname);
     // Support /<commit>/<section> or /<commit> format
     const parts = path.split('/').filter(Boolean);
     if (parts.length === 0) return;
+    if (parts[0] === 'index.html') return;
 
     const commit = decodeURIComponent(parts[0]);
     const sectionIdx = parts.length >= 2 ? parseInt(parts[1], 10) : 0;
@@ -189,7 +216,7 @@
     if (!state.data) return;
     const chapter = getCurrentChapter();
     if (!chapter) return;
-    const path = '/' + encodeURIComponent(chapter.commit) + '/' + state.currentSection;
+    const path = buildRoutePath(chapter.commit, state.currentSection);
     if (window.location.pathname !== path) {
       window.history.pushState(null, '', path);
     }
